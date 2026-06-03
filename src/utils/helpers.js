@@ -63,37 +63,32 @@ export function evaluatePasswordStrength(password) {
 }
 
 export async function downloadBlob(blob, filename) {
-  // Primary method: File System Access API (works perfectly in Edge/Chrome)
-  // Shows a native "Save As" dialog with the correct filename
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return;
-    } catch (err) {
-      // User cancelled the save dialog
-      if (err.name === 'AbortError') return;
-      // If API fails for other reasons, fall through to anchor method
-    }
-  }
-
-  // Fallback: anchor element method (for Firefox / unsupported browsers)
-  const downloadFile = new Blob([blob], { type: 'application/octet-stream' });
-  const url = URL.createObjectURL(downloadFile);
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 1000);
+  return new Promise((resolve) => {
+    // Memastikan tipe MIME yang digunakan adalah binary stream yang aman
+    const downloadFile = new Blob([blob], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(downloadFile);
+    
+    // Pembuatan elemen Anchor secara dinamis
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    
+    // Memasukkan ke dalam DOM sangat penting untuk Firefox
+    document.body.appendChild(a);
+    
+    // Memberi jeda asinkron agar antrean Download Manager browser siap
+    setTimeout(() => {
+      a.click();
+      
+      // Jeda untuk pembersihan memori (RAM) agar browser tidak berat
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 500); 
+    }, 0);
+  });
 }
 
 export function generateOutputFilename(originalName, mode) {
